@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  aws-resource-watcher:
+    build: .
+    # Alternative: Use pre-built image from GitHub Container Registry
+    # image: ghcr.io/mdminhazulhaque/aws-resource-watcher:latest
+    container_name: aws-resource-watcher
+    restart: unless-stopped
+    environment:
+      # AWS Configuration
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_ROLE_ARN=${AWS_ROLE_ARN}
+      
+      # Region Configuration
+      - REGIONS_INCLUDE=${REGIONS_INCLUDE}
+      - REGIONS_EXCLUDE=${REGIONS_EXCLUDE}
+      
+      # Redis Configuration
+      - REDIS_URI=redis://redis:6379
+      
+      # Monitoring Configuration
+      - SLEEP_INTERVAL_SECONDS=${SLEEP_INTERVAL_SECONDS:-300}
+      
+      # SMTP Configuration
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USERNAME=${SMTP_USERNAME}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - SMTP_FROM_EMAIL=${SMTP_FROM_EMAIL}
+      - SMTP_TO_EMAILS=${SMTP_TO_EMAILS}
+      - SMTP_USE_TLS=${SMTP_USE_TLS:-true}
+    depends_on:
+      - redis
+    networks:
+      - aws-watcher-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: aws-resource-watcher-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - aws-watcher-network
+    ports:
+      - "6379:6379"
+
+volumes:
+  redis_data:
+
+networks:
+  aws-watcher-network:
+    driver: bridge
