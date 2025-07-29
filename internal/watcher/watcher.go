@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/service/ses"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -45,19 +46,38 @@ func New(cfg *config.Config) (*Watcher, error) {
 
 	// Create notifier
 	var smtpConfig *notifier.SMTPConfig
-	if cfg.SMTPHost != "" {
-		smtpConfig = &notifier.SMTPConfig{
-			Host:      cfg.SMTPHost,
-			Port:      cfg.SMTPPort,
-			Username:  cfg.SMTPUsername,
-			Password:  cfg.SMTPPassword,
-			FromEmail: cfg.SMTPFromEmail,
-			ToEmails:  cfg.SMTPToEmails,
-			UseTLS:    cfg.SMTPUseTLS,
+	var sesClient *ses.Client
+	var emailConfig *notifier.EmailConfig
+
+	// Create email configuration
+	if len(cfg.MailRecipients) > 0 && cfg.MailFrom != "" {
+		emailConfig = &notifier.EmailConfig{
+			FromEmail:  cfg.MailFrom,
+			Recipients: cfg.MailRecipients,
 		}
 	}
 
-	notifierInstance := notifier.NewNotifier(smtpConfig)
+	// Create SMTP configuration if needed
+	if cfg.MailDriver == "smtp" && cfg.SMTPHost != "" {
+		smtpConfig = &notifier.SMTPConfig{
+			Host:     cfg.SMTPHost,
+			Port:     cfg.SMTPPort,
+			Username: cfg.SMTPUsername,
+			Password: cfg.SMTPPassword,
+			UseTLS:   cfg.SMTPUseTLS,
+		}
+	}
+
+	// Create SES client if needed
+	if cfg.MailDriver == "ses" {
+		// Create a separate config for SES with the mail region
+		sesConfig := awsClient.GetConfig().Copy()
+		sesConfig.Region = cfg.MailRegion
+		sesClient = ses.NewFromConfig(sesConfig)
+		log.Infof("Using AWS SES in region: %s", cfg.MailRegion)
+	}
+
+	notifierInstance := notifier.NewNotifier(cfg.MailDriver, smtpConfig, sesClient, emailConfig)
 
 	return &Watcher{
 		config:    cfg,
@@ -208,7 +228,7 @@ func (w *Watcher) checkResources(ctx context.Context, accountID string, regions 
 			RemovedResources: removedResources,
 		}
 
-		if err := w.notifier.SendNotification(*change); err != nil {
+		if err := w.notifier.SendNotification(ctx, *change); err != nil {
 			log.Errorf("Failed to send notification: %v", err)
 		}
 	} else {

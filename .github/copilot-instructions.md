@@ -10,7 +10,7 @@ This is a Go daemon project that monitors AWS resources and sends notifications 
 - **Architecture**: Daemon/service that runs continuously
 - **AWS Integration**: Uses AWS SDK for Go v2
 - **Storage**: Redis for persistence
-- **Notifications**: Email (SMTP) and webhooks
+- **Notifications**: Email (SMTP or SES)
 - **Deployment**: Docker containers
 
 ## Code Style Guidelines

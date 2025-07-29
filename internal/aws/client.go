@@ -216,6 +216,11 @@ func (c *Client) GetAccountID(ctx context.Context) (string, error) {
 	return aws.ToString(result.Account), nil
 }
 
+// GetConfig returns the AWS configuration
+func (c *Client) GetConfig() aws.Config {
+	return c.cfg
+}
+
 // GetAllRegions returns all AWS regions
 func (c *Client) GetAllRegions(ctx context.Context) ([]string, error) {
 	result, err := c.ec2Client.DescribeRegions(ctx, &ec2.DescribeRegionsInput{})
@@ -248,7 +253,7 @@ func (c *Client) GetResourceARNs(ctx context.Context, region string) ([]string, 
 	requestCount := 0
 	maxRequests := 50 // Prevent infinite loops
 	consecutiveEmptyResponses := 0
-	maxEmptyResponses := 3 // Stop after 3 consecutive empty responses
+	maxEmptyResponses := 1 // Stop after 3 consecutive empty responses
 	seenARNs := make(map[string]bool) // Track unique ARNs to detect duplicates
 	duplicateCount := 0
 

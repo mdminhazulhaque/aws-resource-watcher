@@ -31,14 +31,16 @@ type Config struct {
 	// Monitoring Configuration
 	SleepInterval time.Duration
 
-	// SMTP Configuration
-	SMTPHost       string
-	SMTPPort       int
-	SMTPUsername   string
-	SMTPPassword   string
-	SMTPFromEmail  string
-	SMTPToEmails   []string
-	SMTPUseTLS     bool
+	// Email Configuration
+	MailDriver      string
+	MailRegion      string
+	SMTPHost        string
+	SMTPPort        int
+	SMTPUsername    string
+	SMTPPassword    string
+	MailFrom        string
+	MailRecipients  []string
+	SMTPUseTLS      bool
 }
 
 // Load loads configuration from environment variables
@@ -88,18 +90,20 @@ func Load() (*Config, error) {
 	}
 	cfg.SleepInterval = time.Duration(sleepInterval) * time.Second
 
-	// SMTP Configuration
+	// Email Configuration
+	cfg.MailDriver = getEnvOrDefault("MAIL_DRIVER", "smtp")
+	cfg.MailRegion = getEnvOrDefault("MAIL_REGION", cfg.AWSRegion)
 	cfg.SMTPHost = os.Getenv("SMTP_HOST")
 	cfg.SMTPPort, _ = strconv.Atoi(getEnvOrDefault("SMTP_PORT", "587"))
 	cfg.SMTPUsername = os.Getenv("SMTP_USERNAME")
 	cfg.SMTPPassword = os.Getenv("SMTP_PASSWORD")
-	cfg.SMTPFromEmail = os.Getenv("SMTP_FROM_EMAIL")
+	cfg.MailFrom = os.Getenv("MAIL_FROM")
 	cfg.SMTPUseTLS, _ = strconv.ParseBool(getEnvOrDefault("SMTP_USE_TLS", "true"))
 
-	if toEmails := os.Getenv("SMTP_TO_EMAILS"); toEmails != "" {
-		cfg.SMTPToEmails = strings.Split(toEmails, ",")
-		for i := range cfg.SMTPToEmails {
-			cfg.SMTPToEmails[i] = strings.TrimSpace(cfg.SMTPToEmails[i])
+	if recipients := os.Getenv("MAIL_RECIPIENTS"); recipients != "" {
+		cfg.MailRecipients = strings.Split(recipients, ",")
+		for i := range cfg.MailRecipients {
+			cfg.MailRecipients[i] = strings.TrimSpace(cfg.MailRecipients[i])
 		}
 	}
 
@@ -116,18 +120,25 @@ func (c *Config) validate() error {
 		return fmt.Errorf("REDIS_URI is required")
 	}
 
-	// Check if SMTP notification method is configured
-	if c.SMTPHost == "" {
-		return fmt.Errorf("SMTP notification method must be configured: SMTP settings required")
+	// Check if notification method is configured
+	if c.MailDriver == "" {
+		c.MailDriver = "smtp" // default to SMTP
 	}
 
-	// Validate SMTP configuration
-	if c.SMTPHost != "" {
-		if c.SMTPUsername == "" || c.SMTPPassword == "" || c.SMTPFromEmail == "" || len(c.SMTPToEmails) == 0 {
-			return fmt.Errorf("incomplete SMTP configuration: SMTP_USERNAME, SMTP_PASSWORD, SMTP_FROM_EMAIL, and SMTP_TO_EMAILS are required")
+	// Validate email configuration
+	if c.MailFrom == "" || len(c.MailRecipients) == 0 {
+		return fmt.Errorf("email configuration incomplete: MAIL_FROM and MAIL_RECIPIENTS are required")
+	}
+
+	// Validate SMTP configuration if using SMTP driver
+	if c.MailDriver == "smtp" {
+		if c.SMTPHost == "" || c.SMTPUsername == "" || c.SMTPPassword == "" {
+			return fmt.Errorf("incomplete SMTP configuration: SMTP_HOST, SMTP_USERNAME, and SMTP_PASSWORD are required when using SMTP driver")
 		}
 	}
 
+	// Note: For SES driver, we only need valid AWS credentials (validated elsewhere)
+	
 	return nil
 }
 

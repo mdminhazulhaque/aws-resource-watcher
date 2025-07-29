@@ -1,17 +1,24 @@
 package notifier
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
-	"log"
 	"time"
-	
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ses"
+	"github.com/aws/aws-sdk-go-v2/service/ses/types"
+	log "github.com/sirupsen/logrus"
 	"gopkg.in/gomail.v2"
 )
 
 // Notifier handles sending notifications
 type Notifier struct {
-	smtpConfig *SMTPConfig
+	mailDriver   string
+	smtpConfig   *SMTPConfig
+	sesClient    *ses.Client
+	emailConfig  *EmailConfig
 }
 
 // SMTPConfig holds SMTP configuration
@@ -20,9 +27,13 @@ type SMTPConfig struct {
 	Port      int
 	Username  string
 	Password  string
-	FromEmail string
-	ToEmails  []string
 	UseTLS    bool
+}
+
+// EmailConfig holds common email configuration
+type EmailConfig struct {
+	FromEmail  string
+	Recipients []string
 }
 
 // ResourceChange represents a change in AWS resources
@@ -34,52 +45,105 @@ type ResourceChange struct {
 }
 
 // NewNotifier creates a new notifier
-func NewNotifier(smtpConfig *SMTPConfig) *Notifier {
+func NewNotifier(mailDriver string, smtpConfig *SMTPConfig, sesClient *ses.Client, emailConfig *EmailConfig) *Notifier {
 	return &Notifier{
-		smtpConfig: smtpConfig,
+		mailDriver:  mailDriver,
+		smtpConfig:  smtpConfig,
+		sesClient:   sesClient,
+		emailConfig: emailConfig,
 	}
 }
 
 // SendNotification sends a notification about resource changes
-func (n *Notifier) SendNotification(change ResourceChange) error {
-	log.Printf("Sending notification for account %s", change.AccountID)
-	
-	// Send email notification
-	if n.smtpConfig != nil {
-		log.Printf("Sending email notification")
-		if err := n.sendEmail(&change); err != nil {
-			log.Printf("Failed to send email notification: %v", err)
-			return err
-		}
-		log.Printf("Email notification sent successfully")
+func (n *Notifier) SendNotification(ctx context.Context, change ResourceChange) error {
+	log.Infof("Sending notification for account %s using %s driver", change.AccountID, n.mailDriver)
+
+	var err error
+	switch n.mailDriver {
+	case "ses":
+		err = n.sendSESEmail(ctx, &change)
+	case "smtp":
+		err = n.sendSMTPEmail(&change)
+	default:
+		return fmt.Errorf("unsupported mail driver: %s", n.mailDriver)
 	}
-	
+
+	if err != nil {
+		log.Errorf("Failed to send email notification: %v", err)
+		return err
+	}
+
+	log.Info("Email notification sent successfully")
 	return nil
 }
 
-// sendEmail sends an email notification
-func (n *Notifier) sendEmail(change *ResourceChange) error {
+// sendSMTPEmail sends an email notification via SMTP
+func (n *Notifier) sendSMTPEmail(change *ResourceChange) error {
+	if n.smtpConfig == nil || n.emailConfig == nil {
+		return fmt.Errorf("SMTP configuration not provided")
+	}
+
 	subject := fmt.Sprintf("AWS Resource Changes Detected - Account %s", change.AccountID)
 	body := n.buildEmailBody(change)
 
 	m := gomail.NewMessage()
-	m.SetHeader("From", n.smtpConfig.FromEmail)
-	m.SetHeader("To", n.smtpConfig.ToEmails...)
+	m.SetHeader("From", n.emailConfig.FromEmail)
+	m.SetHeader("To", n.emailConfig.Recipients...)
 	m.SetHeader("Subject", subject)
 	m.SetBody("text/html", body)
 
 	d := gomail.NewDialer(n.smtpConfig.Host, n.smtpConfig.Port, n.smtpConfig.Username, n.smtpConfig.Password)
-	
+
 	if n.smtpConfig.UseTLS {
 		d.TLSConfig = &tls.Config{ServerName: n.smtpConfig.Host}
 	}
 
 	if err := d.DialAndSend(m); err != nil {
-		return fmt.Errorf("failed to send email: %w", err)
+		return fmt.Errorf("failed to send SMTP email: %w", err)
 	}
 
-	log.Printf("Email notification sent successfully to %v", n.smtpConfig.ToEmails)
+	log.Infof("SMTP email notification sent successfully to %v", n.emailConfig.Recipients)
 	return nil
+}
+
+// sendSESEmail sends an email notification via AWS SES
+func (n *Notifier) sendSESEmail(ctx context.Context, change *ResourceChange) error {
+	if n.sesClient == nil || n.emailConfig == nil {
+		return fmt.Errorf("SES client or email configuration not provided")
+	}
+
+	subject := fmt.Sprintf("AWS Resource Changes Detected - Account %s", change.AccountID)
+	body := n.buildEmailBody(change)
+
+	input := &ses.SendEmailInput{
+		Source: aws.String(n.emailConfig.FromEmail),
+		Destination: &types.Destination{
+			ToAddresses: n.emailConfig.Recipients,
+		},
+		Message: &types.Message{
+			Subject: &types.Content{
+				Data: aws.String(subject),
+			},
+			Body: &types.Body{
+				Html: &types.Content{
+					Data: aws.String(body),
+				},
+			},
+		},
+	}
+
+	_, err := n.sesClient.SendEmail(ctx, input)
+	if err != nil {
+		return fmt.Errorf("failed to send SES email: %w", err)
+	}
+
+	log.Infof("SES email notification sent successfully to %v", n.emailConfig.Recipients)
+	return nil
+}
+
+// sendEmail sends an email notification (deprecated, kept for backward compatibility)
+func (n *Notifier) sendEmail(change *ResourceChange) error {
+	return n.sendSMTPEmail(change)
 }
 
 // buildEmailBody builds the HTML email body
