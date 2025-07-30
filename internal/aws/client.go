@@ -211,12 +211,6 @@ func fileExists(filename string) bool {
 	return !os.IsNotExist(err)
 }
 
-// isRunningInKubernetes checks if the application is running in Kubernetes
-func isRunningInKubernetes() bool {
-	// Check for Kubernetes service account token
-	return fileExists("/var/run/secrets/kubernetes.io/serviceaccount/token")
-}
-
 // GetAccountID returns the AWS account ID
 func (c *Client) GetAccountID(ctx context.Context) (string, error) {
 	result, err := c.stsClient.GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
