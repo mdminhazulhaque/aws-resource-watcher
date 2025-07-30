@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: myapp
+  name: default
   labels:
-    name: myapp
+    name: default
     app: aws-resource-watcher

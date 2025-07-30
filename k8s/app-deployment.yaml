@@ -1,12 +1,11 @@
 apiVersion: apps/v1
-kind: StatefulSet
+kind: Deployment
 metadata:
   name: aws-resource-watcher
-  namespace: myapp
+  namespace: default
   labels:
     app: aws-resource-watcher
 spec:
-  serviceName: "aws-resource-watcher"
   replicas: 1
   selector:
     matchLabels:

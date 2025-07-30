@@ -1,13 +1,13 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-namespace: myapp
+namespace: default
 
 resources:
 - namespace.yaml
 - serviceaccount.yaml
 - configmap.yaml
-- app-statefulset.yaml
+- app-deployment.yaml
 
 commonLabels:
   app.kubernetes.io/name: aws-resource-watcher

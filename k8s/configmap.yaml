@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: aws-resource-watcher-config
-  namespace: myapp
+  namespace: default
   labels:
     app: aws-resource-watcher
 data:
@@ -40,7 +40,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: aws-resource-watcher-secret
-  namespace: myapp
+  namespace: default
   labels:
     app: aws-resource-watcher
 type: Opaque
