@@ -4,7 +4,6 @@ kind: Kustomization
 namespace: default
 
 resources:
-- namespace.yaml
 - serviceaccount.yaml
 - configmap.yaml
 - app-deployment.yaml
