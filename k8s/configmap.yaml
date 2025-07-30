@@ -3,42 +3,49 @@ kind: ConfigMap
 metadata:
   name: aws-resource-watcher-config
   namespace: myapp
+  labels:
+    app: aws-resource-watcher
 data:
   # AWS Configuration
   AWS_REGION: "us-east-1"
-  # AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY can be set here for non-EKS clusters
-  # For EKS with IAM service account, these are not needed
+  # AWS_ROLE_ARN: "arn:aws:iam::123456789012:role/aws-resource-watcher-role"
   
   # Region Configuration (optional)
-  # REGIONS_INCLUDE: "us-east-1,us-west-2"
-  # REGIONS_EXCLUDE: "ap-southeast-1,eu-west-1"
+  # REGIONS_INCLUDE: "us-east-1,us-west-2,eu-west-1"
+  # REGIONS_EXCLUDE: "ap-southeast-1,ap-northeast-1,af-south-1"
   
-  # Redis Configuration
+  # Resource Filtering
+  ARN_IGNORE_PATTERNS: "arn:aws:eks:::pod/*,arn:aws:rds:::snapshot:*"
+  
+  # Storage Configuration
   REDIS_URI: "redis://aws-resource-watcher-redis:6379"
   
   # Monitoring Configuration
   SLEEP_INTERVAL_SECONDS: "300"
   
-  # ARN Filter Configuration (optional)
-  # ARN_IGNORE_PATTERNS: "arn:aws:s3:::*,arn:aws:logs:*:*:log-group:*"
+  # Email Configuration
+  MAIL_DRIVER: "smtp"
+  # MAIL_REGION: "us-east-1"
+  MAIL_FROM: "AWS Resource Watcher <alerts@your-domain.com>"
+  MAIL_RECIPIENTS: "devops@your-domain.com,alerts@your-domain.com"
   
-  # SMTP Configuration
+  # SMTP Configuration (when MAIL_DRIVER=smtp)
   SMTP_HOST: "smtp.gmail.com"
   SMTP_PORT: "587"
   SMTP_USERNAME: "your-email@gmail.com"
-  SMTP_FROM_EMAIL: "your-email@gmail.com"
-  SMTP_TO_EMAILS: "recipient1@example.com,recipient2@example.com"
   SMTP_USE_TLS: "true"
+  
 ---
 apiVersion: v1
 kind: Secret
 metadata:
   name: aws-resource-watcher-secret
   namespace: myapp
+  labels:
+    app: aws-resource-watcher
 type: Opaque
 data:
-  # Base64 encoded values
-  # For non-EKS clusters, uncomment and set these:
+  # AWS Credentials (for non-EKS clusters only)
   # AWS_ACCESS_KEY_ID: <base64-encoded-access-key>
   # AWS_SECRET_ACCESS_KEY: <base64-encoded-secret-key>
   

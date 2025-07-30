@@ -16,13 +16,18 @@ spec:
       labels:
         app: aws-resource-watcher
     spec:
-      # For EKS with IAM service account
       serviceAccountName: aws-resource-watcher
       
       containers:
       - name: aws-resource-watcher
         image: ghcr.io/mdminhazulhaque/aws-resource-watcher:latest
         imagePullPolicy: Always
+        
+        env:
+        - name: KUBERNETES_SERVICE_HOST
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
         
         envFrom:
         - configMapRef:
@@ -39,30 +44,6 @@ spec:
             memory: "1Gi"
             cpu: "1000m"
         
-        # Health checks
-        livenessProbe:
-          exec:
-            command:
-            - /bin/sh
-            - -c
-            - "pgrep -f aws-resource-watcher"
-          initialDelaySeconds: 60
-          periodSeconds: 30
-          timeoutSeconds: 10
-          failureThreshold: 3
-        
-        readinessProbe:
-          exec:
-            command:
-            - /bin/sh
-            - -c
-            - "pgrep -f aws-resource-watcher"
-          initialDelaySeconds: 30
-          periodSeconds: 10
-          timeoutSeconds: 5
-          failureThreshold: 3
-        
-        # Security context
         securityContext:
           runAsNonRoot: true
           runAsUser: 65534
@@ -71,30 +52,8 @@ spec:
           capabilities:
             drop:
             - ALL
-        
-        # Graceful shutdown
-        lifecycle:
-          preStop:
-            exec:
-              command:
-              - /bin/sh
-              - -c
-              - "sleep 10"
       
-      # Pod security context
       securityContext:
         fsGroup: 65534
       
-      # Restart policy
       restartPolicy: Always
-      
-      # Node selection (optional)
-      # nodeSelector:
-      #   kubernetes.io/arch: amd64
-      
-      # Tolerations (optional)
-      # tolerations:
-      # - key: "node-role.kubernetes.io/spot"
-      #   operator: "Equal"
-      #   value: "true"
-      #   effect: "NoSchedule"

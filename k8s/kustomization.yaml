@@ -5,15 +5,13 @@ namespace: myapp
 
 resources:
 - namespace.yaml
+- serviceaccount.yaml
 - configmap.yaml
-- redis-statefulset.yaml
 - app-statefulset.yaml
 
-# Optional: Add common labels to all resources
 commonLabels:
   app.kubernetes.io/name: aws-resource-watcher
   app.kubernetes.io/version: v1.0.0
 
-# Optional: Add common annotations
 commonAnnotations:
   app.kubernetes.io/managed-by: kustomize

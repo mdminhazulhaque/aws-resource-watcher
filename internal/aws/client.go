@@ -29,8 +29,11 @@ func NewClient(ctx context.Context, accessKey, secretKey, roleARN, region string
 	var cfg aws.Config
 	var err error
 
-	// Auto-detect credentials if not explicitly provided
-	if accessKey == "" && secretKey == "" && roleARN == "" {
+	// Check if running in Kubernetes with IRSA
+	if isRunningInKubernetes() {
+		log.Info("Detected Kubernetes environment, using IRSA credentials...")
+		cfg, err = autoDetectCredentials(ctx, region)
+	} else if accessKey == "" && secretKey == "" && roleARN == "" {
 		log.Info("No explicit credentials provided, attempting auto-detection...")
 		cfg, err = autoDetectCredentials(ctx, region)
 	} else {
@@ -134,7 +137,9 @@ func createConfigWithCredentials(ctx context.Context, accessKey, secretKey, role
 // logCredentialSource logs information about the detected credential source
 func logCredentialSource() {
 	// Check various credential sources and log what was found
-	if os.Getenv("AWS_ACCESS_KEY_ID") != "" {
+	if isRunningInKubernetes() {
+		log.Info("Credential source: IRSA (IAM Roles for Service Accounts) in Kubernetes")
+	} else if os.Getenv("AWS_ACCESS_KEY_ID") != "" {
 		log.Info("Credential source: Environment variables (AWS_ACCESS_KEY_ID)")
 	} else if os.Getenv("AWS_PROFILE") != "" {
 		log.Infof("Credential source: AWS Profile (%s)", os.Getenv("AWS_PROFILE"))
@@ -204,6 +209,12 @@ func configureKubernetesCredentials(ctx context.Context, region string) (aws.Con
 func fileExists(filename string) bool {
 	_, err := os.Stat(filename)
 	return !os.IsNotExist(err)
+}
+
+// isRunningInKubernetes checks if the application is running in Kubernetes
+func isRunningInKubernetes() bool {
+	// Check for Kubernetes service account token
+	return fileExists("/var/run/secrets/kubernetes.io/serviceaccount/token")
 }
 
 // GetAccountID returns the AWS account ID
