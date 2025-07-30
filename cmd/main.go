@@ -36,22 +36,30 @@ func main() {
 		log.Fatalf("Failed to create watcher: %v", err)
 	}
 
+	// Create error channel to handle watcher errors
+	errChan := make(chan error, 1)
+
 	// Start the watcher in a goroutine
 	go func() {
 		if err := w.Start(ctx); err != nil {
 			log.Errorf("Watcher stopped with error: %v", err)
+			errChan <- err
 			cancel()
 		}
 	}()
 
 	log.Info("AWS Resource Watcher started successfully")
 
-	// Wait for shutdown signal
-	<-sigChan
-	log.Info("Shutdown signal received, stopping watcher...")
-
-	cancel()
-	w.Stop()
-
-	log.Info("AWS Resource Watcher stopped")
+	// Wait for shutdown signal or error
+	select {
+	case <-sigChan:
+		log.Info("Shutdown signal received, stopping watcher...")
+		cancel()
+		w.Stop()
+		log.Info("AWS Resource Watcher stopped")
+	case err := <-errChan:
+		log.Errorf("AWS Resource Watcher exiting due to error: %v", err)
+		w.Stop()
+		os.Exit(1)
+	}
 }
