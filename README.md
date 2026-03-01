@@ -54,7 +54,6 @@ For AWS EKS clusters, use IAM Roles for Service Accounts (IRSA) for secure AWS a
 # Set your cluster details
 CLUSTER_NAME="your-cluster-name"
 REGION="us-east-1"
-ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 
 # Create IAM role and service account with required permissions
 eksctl create iamserviceaccount \
