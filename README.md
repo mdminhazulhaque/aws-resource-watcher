@@ -59,7 +59,7 @@ ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 # Create IAM role and service account with required permissions
 eksctl create iamserviceaccount \
     --name aws-resource-watcher \
-    --namespace default \
+    --namespace kube-system \
     --cluster $CLUSTER_NAME \
     --region $REGION \
     --attach-policy-arn arn:aws:iam::aws:policy/ResourceGroupsandTagEditorReadOnlyAccess \
@@ -71,7 +71,7 @@ eksctl create iamserviceaccount \
 kubectl apply -k k8s/
 
 # Verify deployment
-kubectl logs -f deployment/aws-resource-watcher -n default
+kubectl logs -f deployment/aws-resource-watcher -n kube-system
 ```
 
 ## Configuration
